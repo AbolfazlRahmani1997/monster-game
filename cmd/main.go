@@ -1,31 +1,18 @@
 package main
 
 import (
-	"Monstern/core/domain"
-	"fmt"
+	"Monstern/adapters/handler"
+	"Monstern/api"
+	"Monstern/core/service"
 )
 
 func main() {
-	c := domain.NewCollection()
-
-	game := domain.NewGame(c)
-	game.JoinPlayer(domain.Player{Id: "10", Name: "Test"})
-	game.JoinPlayer(domain.Player{Id: "11", Name: "Ali"})
-	game.JoinPlayer(domain.Player{Id: "12", Name: "Ho"})
-	game.JoinPlayer(domain.Player{Id: "13", Name: "i"})
-
-	go game.Run()
-	game.Pour <- true
-	for {
-		var player string
-		var card string
-		_, err := fmt.Scanln(&player, &card)
-		if err != nil {
-			return
-		}
-		if card == "check" {
-			game.Check <- player
-		}
-		game.Pick <- domain.PickCard{Player: player, Card: card}
+	gameRoomManager := service.NewGameRoomManager()
+	go gameRoomManager.Start()
+	gameHandler := handler.NewGameHandler(gameRoomManager)
+	api.Init(*gameHandler)
+	err := api.Start("0.0.0.0:9090")
+	if err != nil {
+		return
 	}
 }

@@ -8,11 +8,16 @@ import (
 	"time"
 )
 
+type Message struct {
+	MessageType string      `json:"message_type"`
+	Data        interface{} `json:"data"`
+	CardId      string
+}
 type Round struct {
 	Sets []Set
 }
 type Game struct {
-	Id           string `json:"id"`
+	Id           string `json:"Id"`
 	Cards        []Card
 	UsedCards    map[string]Card
 	CardInGame   map[string]Card
@@ -33,8 +38,14 @@ type PickCard struct {
 
 func (g *Game) JoinPlayer(player Player) {
 	g.Players[player.Id] = player
+	player.Pick = g.Pick
 }
 
+func (g *Game) Broadcasting(Message Message) {
+	for _, player := range g.Players {
+		player.Message <- Message
+	}
+}
 func (g *Game) Run() {
 	for {
 		select {
@@ -56,16 +67,18 @@ func (g *Game) Run() {
 					fmt.Println("pick able:", g.PickAbleCard)
 				}
 				g.CardInGame[g.Cards[index].Id] = g.Cards[index]
+
 				g.Cards = delete_at_card(g.Cards, index)
-				fmt.Print("card in game")
+				fmt.Print("Card_In_Game")
 				fmt.Println(len(g.Cards) == 0)
 				if len(g.Cards) == 0 {
 					g.Finish <- true
 				}
 			}
-			rand.Seed(time.Now().UnixNano()) // seed or it will be set to 1
-			// generate a random int in the range 0 to 9\
+			rand.Seed(time.Now().UnixNano())
 			fmt.Println(g.CardInGame, g.DiceNumber)
+			g.Broadcasting(Message{MessageType: "Card In Game", Data: g.CardInGame})
+			g.Broadcasting(Message{MessageType: "DiceNumber", Data: g.DiceNumber})
 		case <-g.Finish:
 			var score map[string]int
 			score = make(map[string]int)
@@ -83,16 +96,13 @@ func (g *Game) Run() {
 					if PlayerSet, ok := g.Sets[p.Player]; ok {
 						PlayerSet.Cards = append(PlayerSet.Cards, card)
 						g.Sets[p.Player] = PlayerSet
-
 					} else {
 						var cards []Card
 						cards = append(cards, card)
 						g.Sets[p.Player] = Set{Cards: cards}
-
 					}
 					delete(g.CardInGame, p.Card)
 					if len(g.Cards) == 0 {
-						fmt.Println(g.Cards)
 
 					}
 				}
@@ -110,12 +120,9 @@ func (g *Game) Run() {
 	}
 }
 
-func NewPlayer(name string) *Player {
-	return &Player{Id: ulid.Make().String(), Name: name}
-}
-
 func NewGame(Cards []Card) *Game {
-	return &Game{Id: ulid.Make().String(), Cards: Cards, CardInGame: make(map[string]Card), UsedCards: make(map[string]Card), Players: make(map[string]Player), Sets: make(map[string]Set), Check: make(chan string), Finish: make(chan bool, 10), Pour: make(chan bool, 10), Pick: make(chan PickCard, 10)}
+	return &Game{Id: ulid.Make().String(), Cards: Cards, CardInGame: make(map[string]Card),
+		UsedCards: make(map[string]Card), Players: make(map[string]Player), Sets: make(map[string]Set), Check: make(chan string), Finish: make(chan bool, 10), Pour: make(chan bool, 10), Pick: make(chan PickCard, 10)}
 }
 func (c *Card) NewCard(color Color, hand int) Card {
 	return Card{Id: ulid.Make().String(), Color: color, Hand: hand}
