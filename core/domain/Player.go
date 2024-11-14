@@ -7,12 +7,21 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+const (
+	InGame  Status = "InGame"
+	Waiting Status = "Waiting"
+)
+
+type Status string
+
 type Player struct {
 	Id      string
 	Name    string
 	Conn    *websocket.Conn
 	Message chan Message
 	Pick    chan PickCard
+	Game    *Game
+	Status  Status
 }
 
 func NewPlayer(name string, Conn *websocket.Conn) *Player {
@@ -35,6 +44,11 @@ func (receiver *Player) Read() {
 		switch Receive.MessageType {
 		case "pick":
 			receiver.Pick <- PickCard{Player: receiver.Id, Card: Receive.CardId}
+		case "Pour":
+			receiver.Game.Pour <- true
+		case "check":
+			receiver.Game.Check <- receiver.Id
+
 		default:
 		}
 
@@ -42,7 +56,7 @@ func (receiver *Player) Read() {
 }
 func (receiver *Player) WriteMessage() {
 	defer func() {
-
+		receiver.Conn.Close()
 	}()
 
 	for {

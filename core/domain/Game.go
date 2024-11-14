@@ -38,6 +38,7 @@ type PickCard struct {
 
 func (g *Game) JoinPlayer(player Player) {
 	g.Players[player.Id] = player
+	player.Game = g
 	player.Pick = g.Pick
 }
 
